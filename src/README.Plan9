@@ -1,0 +1,30 @@
+* Fix the check for BYTE_ORDER (big/little endian)
+in plot.h. Best would be endian agnostic code.
+Right now I took away all tests, which assumes
+little endian.
+
+* In 'plot/*bpp-*.c' the macro UNUSED is dissabled.
+
+* In src/time.c it falls back on an maybe not so reliable
+gettimeofday() function. Maybe this can be replaced with
+some Plan 9 function.
+
+* The Plan 9 framebuffer driver is found in 'surface/plan9.c'
+
+# original surface registering macro (for plan9)
+
+static void plan9_register_surface(void) __attribute__((constructor));
+
+void
+plan9_register_surface(void){
+	_nsfb_register_surface(NSFB_SURFACE_X,&plan9_rtns,"plan9");
+}
+
+# plan 9 adapted surface registering macro
+
+static void plan9_register_surface(void);
+
+void
+plan9_register_surface(void){
+	_nsfb_register_surface(NSFB_SURFACE_X,&plan9_rtns,"plan9");
+}
