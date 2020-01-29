@@ -14,6 +14,18 @@
 
 #define UNUSED(x) ((x) = (x))
 
+extern void ram_register_surface(void);
+extern void plan9_register_surface(void);
+
+void
+init_libs(void)
+{
+	ram_register_surface();
+	plan9_register_surface();	
+}
+
+
+
 const struct {
 	unsigned int w;
 	unsigned int h;
@@ -53,8 +65,10 @@ int main(int argc, char **argv)
 	int i;
 	unsigned int x, y;
 
+        init_libs();
+
 	if (argc < 2) {
-		fename="sdl";
+		fename="plan9";
 	} else {
 		fename = argv[1];
 	}

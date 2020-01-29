@@ -13,6 +13,16 @@
 #include "libnsfb_plot.h"
 #include "libnsfb_event.h"
 
+extern void ram_register_surface(void);
+extern void plan9_register_surface(void);
+
+void
+init_libs(void)
+{
+	ram_register_surface();
+	plan9_register_surface();	
+}
+
 
 #include <time.h>
 // Sleep milliseconds
@@ -45,8 +55,11 @@ int main(int argc, char **argv)
 
     double rotate;
 
+    init_libs();
+
+
     if (argc < 2) {
-        fename="sdl";
+        fename="plan9";
     } else {
         fename = argv[1];
     }
