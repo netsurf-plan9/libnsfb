@@ -85,7 +85,21 @@ mssleep(int ms)		/* sleep milliseconds */
 static bool
 p9copy(nsfb_t *nsfb, nsfb_bbox_t *srcbox, nsfb_bbox_t *dstbox)
 {
-    return true;
+	Point srcpt;
+	Rectangle dstrect;
+	drawstate_t *drawstate = nsfb->surface_priv;
+	srcpt.x=srcbox->x0;
+	srcpt.y=srcbox->y0;
+	dstrect.min.x = dstbox->x0;
+	dstrect.min.y = dstbox->y0;
+	dstrect.max.x = dstbox->x1;
+	dstrect.max.y = dstbox->y1;
+	draw(drawstate->srvimage,
+		dstrect, 
+		drawstate->srvimage, 
+		nil, 
+		srcpt);
+	return true;
 }
 
 
@@ -113,7 +127,7 @@ plan9_set_geometry(nsfb_t *nsfb, int width, int height,
 
 	/* select default sw plotters for format */
 	select_plotters(nsfb);
-	//nsfb->plotter_fns->copy = p9copy;	/* empty function */
+	nsfb->plotter_fns->copy = p9copy;	/* empty function */
 
 	drawstate_t *drawstate = nsfb->surface_priv;
 
