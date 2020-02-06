@@ -298,6 +298,10 @@ plan9_to_nsfbkeycode(Event *evp)
 		code = key;
 	else if (key == 10)
 		code = NSFB_KEY_RETURN;		/* LF -> CR */
+	else if (key == 0xf011)
+		code = NSFB_KEY_LEFT;
+	else if (key == 0xf012)
+		code = NSFB_KEY_RIGHT;
 	else
 		code = NSFB_KEY_UNKNOWN;
 
