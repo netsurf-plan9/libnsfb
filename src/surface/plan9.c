@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <ctype.h>
 
 #include "libnsfb.h"
 #include "libnsfb_event.h"
@@ -42,6 +43,71 @@ Image *
 create_draw_image(int width, int height, ulong chan);
 
 /*
+ * Functions and structures for buffering of events
+ *
+ * There is no 1:1 relationship between Plan 9 events and
+ * NSFB events (nsevent). The following ringbuffer can
+ * ease the translation of one Plan 9 keyevent to multiple
+ * nsevent or one mouse event to multiple nsevents for
+ * mousebutton press/release events and movement events
+ *
+ */
+#define EVBUFSIZE 8		/* max no. of events buffered */
+
+typedef struct eventbuffer_s {
+	nsfb_event_t buffer[EVBUFSIZE];
+	int buflen;		/* how many events are in the buffer */
+	int readidx;		/* next free slot to add event */
+	int writeidx;		/* first available event to read */
+} eventbuffer_t;
+
+/**
+ * Put an nsevent on hold (fifo buffer ringbuffer)
+ * 
+ * \param evbuf		ptr to the buffer (typically in drawstate)
+ * \param nsevent	ptr to event to buffer
+ * \return		0 if buffer is full, 1 for success.
+ *
+ */
+
+int
+putevent(eventbuffer_t *evbuf, nsfb_event_t *nsevent)
+{
+	if(evbuf->buflen >= EVBUFSIZE){
+		return 0;
+	}
+	evbuf->buffer[evbuf->writeidx++] = *nsevent;
+	evbuf->buflen++;
+	if(evbuf->writeidx >= EVBUFSIZE)
+		evbuf->writeidx = 0;
+	return 1;
+}
+
+/**
+ * Get an nsevent from the bufffer (fifo ringbuffer)
+ * 
+ * \param evbuf		ptr to the buffer (typically in drawstate)
+ * \param nsevent	ptr to event to write to
+ * \return		0 if buffer is empty, 1 for success.
+ *
+ */
+
+int
+getevent(eventbuffer_t *evbuf, nsfb_event_t *nsevent)
+{
+	if(evbuf->buflen < 1){
+		return 0;	/* fail (emtpy) */
+	}
+	*nsevent = evbuf->buffer[evbuf->readidx++];
+	evbuf->buflen--;
+	if(evbuf->readidx >= EVBUFSIZE)
+		evbuf->readidx = 0;
+
+	return 1;		/* success */
+}
+
+
+/*
  * A 'drawstate' contain all information about the
  * the connecton to graphics in Plan 9 as well a pointer
  * to the memory area in which the library updates the content.
@@ -53,6 +119,7 @@ typedef struct drawstate_s {
 	Image *srvimage;		/* dispaly buffer (server) */
 	int imagebytes;			/* buffer size in bytes */
 	int mousebuttons;		/* last mouse button status */
+	eventbuffer_t eventbuffer;	/* buffer of incoming events */
 } drawstate_t;
 
 
@@ -290,9 +357,7 @@ plan9_to_nsfbkeycode(Event *evp)
 
 //	fprintf(stderr, "DBG: kbdc = %d [%c]\n", key, key);
 
-	if ('a' <= key && key <= 'z')	/* 'A'-'Z' */
-		code = key;
-	else if (32 <= key && key <= 64) /* space to '@' */
+	if (32 <= key && key <= 127) 		/* space to DEL */
 		code = key;
 	else if (8 <= key && key <= 9)		/* BS, TAB */
 		code = key;
@@ -344,10 +409,9 @@ button_changed(int newbuttons, int oldbuttons, int butnum)
  *			Also, the Plan 9 mouse event contains both movement
  *			and button information in the same event, but NSFB
  *			uses two differents event types for movement and
- *			for presses/realeases. The correct way to do it
- *			(e.g. TODO) is to buffer one of the events (e.g.
- *			in the drawstate) and fire it next time plan9_input()
- *			is called. The current solution will prioritise
+ *			for presses/realeases. [As there is now buffering
+ *			of keyboard events, it would be easy to do for the
+ *			mouse too]. The current solution will prioritise
  *			button changes, ignoring any movement happeing
  *			during a button state change. Movements are absolute
  *			and tend to come in swarms, so this should not be
@@ -363,14 +427,32 @@ trans_plan9_event(nsfb_t *nsfb, nsfb_event_t *nsevent, Event *evp, int e)
 	int chg;	/* mouse button change (MSAME|MDOWN/MUP) */
 	nsevent->type = NSFB_EVENT_NONE;	/* default to NONE */
 	int button_changes;	/* no. of button state chnges since last mouse event */
+	int keycode;	/* nsfb keycode, converted from Plan 9 key code */
 
 //	fprintf(stderr, "DBG: trans_plan9_event(e == %d)\n", e);
 
 	switch (e) {
 	case Ekeyboard:
-		//fprintf(stderr, "DBG: trans_plan9_event() / keyboard \n");
-		nsevent->type = NSFB_EVENT_KEY_DOWN;
-		nsevent->value.keycode = plan9_to_nsfbkeycode(evp);
+		keycode = plan9_to_nsfbkeycode(evp);
+
+			/* UPPER case -> (1)LSHIFT_DOWN + (2)letter + (3)LSHIFT_UP */
+			/* the first event is passed through, the other two are buffered */
+		if(isupper(keycode)){
+			nsevent->type = NSFB_EVENT_KEY_DOWN;	/* event 2: key */
+			nsevent->value.keycode = tolower(keycode);
+			putevent(&drawstate->eventbuffer, nsevent);
+
+			nsevent->type = NSFB_EVENT_KEY_UP;	/* event 3: SHIFT UP */
+			nsevent->value.keycode = NSFB_KEY_LSHIFT;
+			putevent(&drawstate->eventbuffer, nsevent);
+
+			nsevent->type = NSFB_EVENT_KEY_DOWN;	/* event 1: SHIFT DOWN */
+			nsevent->value.keycode = NSFB_KEY_LSHIFT;
+			
+		} else {	/* LOWER case - just pass through (without buffring) */
+			nsevent->type = NSFB_EVENT_KEY_DOWN;
+			nsevent->value.keycode = keycode;
+		}
 		break;
 	case Emouse:
 		button_changes = 0;	/* no button chanes we know of so far... */
@@ -489,6 +571,16 @@ static bool plan9_input(nsfb_t *nsfb, nsfb_event_t *nsevent, int timeout)
 //		once++;
 //	}
 	
+	/*
+	 * Check if there are buffered events from pending
+	 * This happens if an earlier Plan 9 event got translated
+	 * into multiple nsevent. If there are at least one
+	 * waiting event return the first one */
+
+	if(getevent(&drawstate->eventbuffer, nsevent))
+		return true;	/* event is filled in nsevent */
+
+
 	/* Event checking behaviour depeding on 'timeout':
 	 * timeout == 0	Check if there is an kbd/mouse event,
 	 * 		if not, return false.

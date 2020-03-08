@@ -50,34 +50,13 @@ most of its time sleeping, and reacts fairly quikly
 (after 250 ms) to input events. The values might be
 adjusted. Not perfect, but simple.
 
-
-* In the current incarnation, one Plan 9 event (keyboard
-or mouse) is translated to one NSFB-event. This is a
-simple solution, but has some drawbacks. For the mouse,
-an 'Emouse' event in Plan 9 contains both mouse button
-and mouse movment information, and as well as information
-on all buttons in one message. To do things properly, an
-Emouse has to be translated to multiple NSFB events, for
-different keypresses/releases and for movement. The most
-straight forward way would be to have a small buffer of
-events in 'drawstate' (the structure that holds the
-state of the framebuffer), and that plan9_input() would as a
-first thing check if there are buffered events to send
-before trying to check for new events, all without sleeping.
-All this because Netsurf only expect one event at a time.
-
-For the keyboard, it is the opposite. Plan 9 does by
-default only send events on key presses, not on key
-releases. There should be a supported way in 9front to
-read both presses/releases (source the Doom port).
-Is keeping track of key releases needed anywhere in
-Netsurf? If not, it might be enough to send only
-events on keypresses (the current behaviour) or to
-send two events after each other for keypress and
-keyrelease, using the buffereing technique described
-for mouse events above. Maybe this is needed for
-uppercase letters, or for key repetition. Let's see!
-
+* Each Plan 9 mouse event (Emouse) are only translated
+into one nsevent currently, not handling more than
+one mouse button change at a time, and not handling
+both pressing/depressing and moving at the same time.
+As keyboard events (Ekeyboard) now can be translated
+to multiple events (e.g. for upper case letters),
+it would be easy to multiplex mouse events too.
 
 * In the original libnsfb, there are static constructors
 for each surface (e.g. ram_register_surface() that are
