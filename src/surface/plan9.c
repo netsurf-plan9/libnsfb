@@ -306,6 +306,9 @@ create_draw_image(int width, int height, ulong chan)
 static int
 plan9_initialise(nsfb_t *nsfb)
 {
+	if(!inited)	/* if we are called before plan9_set_geometry() */
+		plan9_set_geometry(nsfb, nsfb->width, nsfb->height, nsfb->format);
+
 	einit(Emouse|Ekeyboard);
 	eresized(0);	/* first drawing */
 	return 0;
