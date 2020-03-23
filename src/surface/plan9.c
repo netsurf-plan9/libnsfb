@@ -544,7 +544,8 @@ debug_event(nsfb_event_t *nsevent, Event *evp)
  *	properly, but I still have hope I will.
  */
 
-static bool plan9_input(nsfb_t *nsfb, nsfb_event_t *nsevent, int timeout)
+static bool
+plan9_input(nsfb_t *nsfb, nsfb_event_t *nsevent, int timeout)
 {
 	if(perform_resize) {
 		perform_resize=false;
@@ -634,8 +635,8 @@ static bool plan9_input(nsfb_t *nsfb, nsfb_event_t *nsevent, int timeout)
 /* This has something to do with the mouse pointer. Not sure if
  * it is needed, as plan 9 has its own pointer
  */
-
-static int plan9_claim(nsfb_t *nsfb, nsfb_bbox_t *box)
+static int
+plan9_claim(nsfb_t *nsfb, nsfb_bbox_t *box)
 {
 //	fprintf(stderr, "DBG: plan9_claim()\n");
 	return 0;
@@ -738,7 +739,8 @@ update_and_redraw_srvimage(drawstate_t *drawstate, Rectangle r,
 	return 0;
 }
 
-static int plan9_update(nsfb_t *nsfb, nsfb_bbox_t *box)
+static int
+plan9_update(nsfb_t *nsfb, nsfb_bbox_t *box)
 {
 	drawstate_t *drawstate = nsfb->surface_priv;
 	Rectangle r;
