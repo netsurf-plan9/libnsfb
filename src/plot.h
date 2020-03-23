@@ -45,6 +45,9 @@
     #else
         #error "Endian determination failed"
     #endif
+#elif defined(_PLAN9)
+    /* the only supported platforms are currently little endian */
+    #define NSFB_LE_BYTE_ORDER
 #else
     #include <endian.h>
     #if defined(__BYTE_ORDER__)

@@ -4,6 +4,14 @@
 #include "libnsfb_plot.h"
 #include "nsfb.h"
 
+#ifdef __GNUC__
+#define REGISTER(fn)	static void fn(void) __attribute__((constructor));
+#else
+/* it'll just have to be called manually */
+#define REGISTER(fn)	void fn(void);
+#endif
+
+
 /* surface default options */
 typedef int (nsfb_surfacefn_defaults_t)(nsfb_t *nsfb);
 
@@ -48,7 +56,7 @@ void _nsfb_register_surface(const enum nsfb_type_e type, const nsfb_surface_rtns
 
 /* macro which adds a builtin command with no argument limits */
 #define NSFB_SURFACE_DEF(__name, __type, __rtns)                       \
-    static void __name##_register_surface(void) __attribute__((constructor)); \
+    REGISTER(__name##_register_surface); \
     void __name##_register_surface(void) {                              \
         _nsfb_register_surface(__type, __rtns, #__name);               \
     }                                                                   

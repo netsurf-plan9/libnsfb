@@ -17,8 +17,11 @@
 #include "nsfb.h"
 #include "plot.h"
 
+#ifdef __GNUC__
 #define UNUSED __attribute__((unused))
-
+#else
+#define UNUSED
+#endif
 
 /**
  * Get the address of a logical location on the framebuffer
