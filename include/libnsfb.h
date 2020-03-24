@@ -35,14 +35,15 @@ typedef struct nsfb_bbox_s {
 /** The type of framebuffer surface. */
 enum nsfb_type_e {
     NSFB_SURFACE_NONE = 0, /**< No surface */
-    NSFB_SURFACE_RAM, /**< RAM surface */
     NSFB_SURFACE_SDL, /**< SDL surface */
-    NSFB_SURFACE_LINUX, /**< Linux framebuffer surface */
-    NSFB_SURFACE_VNC, /**< VNC surface */
-    NSFB_SURFACE_ABLE, /**< ABLE framebuffer surface */
     NSFB_SURFACE_X, /**< X windows surface */
     NSFB_SURFACE_WL, /**< Wayland surface */
-    NSFB_SURFACE_PLAN9 /**< Plan 9 libdraw surface */   
+    NSFB_SURFACE_VNC, /**< VNC surface */
+    NSFB_SURFACE_LINUX, /**< Linux framebuffer surface */
+    NSFB_SURFACE_ABLE, /**< ABLE framebuffer surface */
+    NSFB_SURFACE_RAM, /**< RAM surface */
+    NSFB_SURFACE_PLAN9, /**< Plan 9 devdraw surface */
+    NSFB_SURFACE_COUNT, /**< The number of surface kinds */
 };
 
 enum nsfb_format_e {
@@ -58,6 +59,21 @@ enum nsfb_format_e {
     NSFB_FMT_I4, /* 4bpp indexed */
     NSFB_FMT_I1, /* black and white */
 };
+
+/** Callback for surface enumeration
+ *
+ * @param The context you gave for the enumeration
+ * @param The name of a surface registered with libnsfb
+ * @param The type of that surface for use with ::nsfb_new
+ */
+typedef void (*surface_enumeration_cb)(void *, const char *, enum nsfb_type_e);
+
+/** Enumerate surface types registered with libnsfb
+ *
+ * @param cb The callback to call with each surface
+ * @param context The context to pass to the enumeration callback
+ */
+void nsfb_enumerate_surface_types(surface_enumeration_cb cb, void *context);
 
 /** Select frontend type from a name.
  * 
