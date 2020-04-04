@@ -401,6 +401,44 @@ button_changed(int newbuttons, int oldbuttons, int butnum)
 }
 
 
+/*
+ * Some ascii characters (key strokes) are not recognised as events
+ * themselves, but have to be sent as a SHIFTDN + unshifted key + SHIFTUP.
+ * This function gives the unshifted ascii key for a keycode, if it is in
+ * the list of 'problematic' keys, that are not recognised.
+ * Example: '%' -> '5'. (Persent sign is shifted '5' key)
+ *
+ * \param	ascii	keycode to check
+ * \return		0 if not a special symbol, otherwhise the ascii of
+ *			the unshifted key on the british keyboard layout.
+ */
+
+int
+unshiftedkeycode(int ascii)
+{
+	switch(ascii) {
+	case '%':
+		return '5';
+		break;
+	case '|':
+		return '\\';
+		break;
+	case '^':
+		return '6';
+		break;
+	case '~':
+		return '#';
+		break;
+	case '{':
+		return '[';
+		break;
+	case '}':
+		return ']';
+		break;
+	}
+	return 0;
+}
+
 /* trans_plan9_event()	Translate Plan 9 events (keyboard and mouse)
  *			to corresponding NSFB-events (see libnsfb_event.h).
  *
@@ -420,6 +458,8 @@ button_changed(int newbuttons, int oldbuttons, int butnum)
  *			and tend to come in swarms, so this should not be
  *			big problem.
  *
+ *			Captital letters, and some symbols, will also
+ *			generate LSHIFT events around them.
  */
 
 static void
@@ -431,6 +471,7 @@ trans_plan9_event(nsfb_t *nsfb, nsfb_event_t *nsevent, Event *evp, int e)
 	nsevent->type = NSFB_EVENT_NONE;	/* default to NONE */
 	int button_changes;	/* no. of button state chnges since last mouse event */
 	int keycode;	/* nsfb keycode, converted from Plan 9 key code */
+	int unshiftkey;	/* some symbols has to be sent as SHIFTD + unshiftkey + SHIFTU */
 
 //	fprintf(stderr, "DBG: trans_plan9_event(e == %d)\n", e);
 
@@ -438,22 +479,47 @@ trans_plan9_event(nsfb_t *nsfb, nsfb_event_t *nsevent, Event *evp, int e)
 	case Ekeyboard:
 		keycode = plan9_to_nsfbkeycode(evp);
 
-			/* UPPER case -> (1)LSHIFT_DOWN + (2)letter + (3)LSHIFT_UP */
-			/* the first event is passed through, the other two are buffered */
-		if(isupper(keycode)){
-			nsevent->type = NSFB_EVENT_KEY_DOWN;	/* event 2: key */
+		/* first event is 'passed through' and the others a buffered */
+
+		/* check if it is a special symbol that must be sent 'shifted' */
+		if(unshiftkey = unshiftedkeycode(keycode)) { /* for some special symbols */
+			nsevent->type = NSFB_EVENT_KEY_DOWN;	/* event 2: key down */
+			nsevent->value.keycode = unshiftkey;
+			putevent(&drawstate->eventbuffer, nsevent);
+
+			nsevent->type = NSFB_EVENT_KEY_UP;	/* event 3: key up */
+			nsevent->value.keycode = unshiftkey;
+			putevent(&drawstate->eventbuffer, nsevent);
+
+			nsevent->type = NSFB_EVENT_KEY_UP;	/* event 4: SHIFT up */
+			nsevent->value.keycode = NSFB_KEY_LSHIFT;
+			putevent(&drawstate->eventbuffer, nsevent);
+
+			nsevent->type = NSFB_EVENT_KEY_DOWN;	/* event 1: SHIFT down */
+			nsevent->value.keycode = NSFB_KEY_LSHIFT;
+		}
+		else if(isupper(keycode)){
+			nsevent->type = NSFB_EVENT_KEY_DOWN;	/* event 2: key down */
 			nsevent->value.keycode = tolower(keycode);
 			putevent(&drawstate->eventbuffer, nsevent);
 
-			nsevent->type = NSFB_EVENT_KEY_UP;	/* event 3: SHIFT UP */
+			nsevent->type = NSFB_EVENT_KEY_UP;	/* event 3: key up */
+			nsevent->value.keycode = tolower(keycode);
+			putevent(&drawstate->eventbuffer, nsevent);
+
+			nsevent->type = NSFB_EVENT_KEY_UP;	/* event 4: SHIFT up */
 			nsevent->value.keycode = NSFB_KEY_LSHIFT;
 			putevent(&drawstate->eventbuffer, nsevent);
 
-			nsevent->type = NSFB_EVENT_KEY_DOWN;	/* event 1: SHIFT DOWN */
+			nsevent->type = NSFB_EVENT_KEY_DOWN;	/* event 1: SHIFT down */
 			nsevent->value.keycode = NSFB_KEY_LSHIFT;
 			
-		} else {	/* LOWER case - just pass through (without buffring) */
-			nsevent->type = NSFB_EVENT_KEY_DOWN;
+		} else {	/* lower case */
+			nsevent->type = NSFB_EVENT_KEY_UP;	/* event 2: key up */
+			nsevent->value.keycode = keycode;
+			putevent(&drawstate->eventbuffer, nsevent);
+
+			nsevent->type = NSFB_EVENT_KEY_DOWN;	/* event 1: key down */
 			nsevent->value.keycode = keycode;
 		}
 		break;
