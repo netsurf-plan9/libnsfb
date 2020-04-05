@@ -42,6 +42,10 @@ create_local_image(int bytes);
 Image *
 create_draw_image(int width, int height, ulong chan);
 
+/* Context menu items for button 2 (middle button) */
+char *Menuitemsbutton2[] = {"cut", "paste", "snarf", 0};
+
+
 /*
  * Functions and structures for buffering of events
  *
@@ -120,6 +124,7 @@ typedef struct drawstate_s {
 	int imagebytes;			/* buffer size in bytes */
 	int mousebuttons;		/* last mouse button status */
 	eventbuffer_t eventbuffer;	/* buffer of incoming events */
+	Menu mousemenubutton2;		/* Middle click menu */
 } drawstate_t;
 
 
@@ -237,6 +242,9 @@ plan9_set_geometry(nsfb_t *nsfb, int width, int height,
 		return -1;
 		//drawshutdown(); /* to call this? */
 	}	
+
+	drawstate->mousemenubutton2.item = Menuitemsbutton2;
+	drawstate->mousemenubutton2.lasthit = 0;
 	
 	/* ensure plotting information is stored */
 	nsfb->surface_priv = drawstate;
@@ -539,14 +547,71 @@ trans_plan9_event(nsfb_t *nsfb, nsfb_event_t *nsevent, Event *evp, int e)
 				nsevent->type = NSFB_EVENT_KEY_UP;
 			button_changes++;
 		}
-		if(chg=button_changed(evp->mouse.buttons, drawstate->mousebuttons, 2)) {
-			nsevent->value.keycode = NSFB_KEY_MOUSE_2;
-			if(chg==MDOWN)
-				nsevent->type = NSFB_EVENT_KEY_DOWN;
-			else
-				nsevent->type = NSFB_EVENT_KEY_UP;
-			button_changes++;
+		/* Open context menu if mouse button 2 (middle) is pressed */
+		if(evp->mouse.buttons == 2){
+			int item;
+			item = emenuhit(2, &evp->mouse, &drawstate->mousemenubutton2);
+			flushimage(display, 1);	
+
+			if(item == 0){					/* cut */
+				nsevent->type = NSFB_EVENT_KEY_DOWN;	/* event 2: 'c' down */
+				nsevent->value.keycode = NSFB_KEY_x;
+				putevent(&drawstate->eventbuffer, nsevent);
+	
+				nsevent->type = NSFB_EVENT_KEY_UP;	/* event 3: 'c' up */
+				nsevent->value.keycode = NSFB_KEY_x;
+				putevent(&drawstate->eventbuffer, nsevent);
+	
+				nsevent->type = NSFB_EVENT_KEY_UP;	/* event 4: CTRL up */
+				nsevent->value.keycode = NSFB_KEY_LCTRL;
+				putevent(&drawstate->eventbuffer, nsevent);
+	
+				nsevent->type = NSFB_EVENT_KEY_DOWN;	/* event 1: CTRL down */
+				nsevent->value.keycode = NSFB_KEY_LCTRL;
+				break;
+			} else if(item == 1) {		/* paste */
+				nsevent->type = NSFB_EVENT_KEY_DOWN;	/* event 2: 'v' down */
+				nsevent->value.keycode = NSFB_KEY_v;
+				putevent(&drawstate->eventbuffer, nsevent);
+	
+				nsevent->type = NSFB_EVENT_KEY_UP;	/* event 3: 'v' up */
+				nsevent->value.keycode = NSFB_KEY_v;
+				putevent(&drawstate->eventbuffer, nsevent);
+	
+				nsevent->type = NSFB_EVENT_KEY_UP;	/* event 4: CTRL up */
+				nsevent->value.keycode = NSFB_KEY_LCTRL;
+				putevent(&drawstate->eventbuffer, nsevent);
+	
+				nsevent->type = NSFB_EVENT_KEY_DOWN;	/* event 1: CTRL down */
+				nsevent->value.keycode = NSFB_KEY_LCTRL;
+				break;
+			} else if(item == 2) {		/* snarf */
+				nsevent->type = NSFB_EVENT_KEY_DOWN;	/* event 2: 'c' down */
+				nsevent->value.keycode = NSFB_KEY_c;
+				putevent(&drawstate->eventbuffer, nsevent);
+	
+				nsevent->type = NSFB_EVENT_KEY_UP;	/* event 3: 'c' up */
+				nsevent->value.keycode = NSFB_KEY_c;
+				putevent(&drawstate->eventbuffer, nsevent);
+	
+				nsevent->type = NSFB_EVENT_KEY_UP;	/* event 4: CTRL up */
+				nsevent->value.keycode = NSFB_KEY_LCTRL;
+				putevent(&drawstate->eventbuffer, nsevent);
+	
+				nsevent->type = NSFB_EVENT_KEY_DOWN;	/* event 1: CTRL down */
+				nsevent->value.keycode = NSFB_KEY_LCTRL;
+				break;			/* jump out of mouse checking */
+			} 
 		}
+/***** Mouse button 2 is not reported, used for the middle menu instead ****/
+//		if(chg=button_changed(evp->mouse.buttons, drawstate->mousebuttons, 2)) {
+//			nsevent->value.keycode = NSFB_KEY_MOUSE_2;
+//			if(chg==MDOWN)
+//				nsevent->type = NSFB_EVENT_KEY_DOWN;
+//			else
+//				nsevent->type = NSFB_EVENT_KEY_UP;
+//			button_changes++;
+//		}
 		if(chg=button_changed(evp->mouse.buttons, drawstate->mousebuttons, 3)) {
 			nsevent->value.keycode = NSFB_KEY_MOUSE_3;
 			if(chg==MDOWN)
